@@ -25,7 +25,7 @@ class JetSelection(Module):
          jetMaxEta=2.4,
          dRCleaning=0.4,
          flagDA=False,
-         storeKinematics=['pt', 'eta', 'phi', 'jetId', 'muon_DeltaR', 'nConstituents'],
+         storeKinematics=['pt', 'eta', 'jetId'],
          globalOptions={"isData": False},
          jetId=-1
          ):
@@ -75,8 +75,8 @@ class JetSelection(Module):
             flagsDA = [0.]*event.nJet
 
         for jet in jets:
-            if jet.pt > self.jetMinPt and jet.pt < self.jetMaxPt\
-                and math.fabs(jet.eta) < self.jetMaxEta and math.fabs(jet.eta) > self.jetMinEta \
+            if jet.pt > self.jetMinPt and (self.jetMaxPt<0 or jet.pt < self.jetMaxPt) \
+                and math.fabs(jet.eta) < self.jetMaxEta and (self.jetMinEta<0 or math.fabs(jet.eta) > self.jetMinEta) \
                 and (jet.jetId > self.jetId):
 
                 #note: tagger only trained for these jets

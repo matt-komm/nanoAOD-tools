@@ -54,6 +54,14 @@ class HNLJetSelection(Module):
         """process event, return True (go to next module) or False (fail, go to next event)"""
 
         jets = self.jetCollection(event)
+        
+        if len(jets)==0:
+            for label in self.jetLabels:
+                self.out.fillBranch(self.outputName+"_"+label+"_lepton_deltaR",-1)
+                self.out.fillBranch(self.outputName+"_"+label+"_lepton_dxy_sig",-1)
+                self.out.fillBranch(self.outputName+"_"+label+"_lepton_deltaR",100.)
+            return True
+        
         promptLepton = self.promptLeptonCollection(event)
         looseLeptons = self.looseLeptonsCollection(event)
         

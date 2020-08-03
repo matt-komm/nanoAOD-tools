@@ -152,9 +152,9 @@ class TaggerEvaluation(Module):
         for ijet,jetIndex in enumerate(jetOriginIndices):
             predictionsPerIndexAndValue[jetIndex] = {}
 
-            for ictau,ctau in enumerate(self.evalValues):
-                predictionIndex = ijet*len(self.evalValues)+ictau
-                predictionsPerIndexAndCtau[jetIndex][ctau] = result.get("prediction",predictionIndex)
+            for ivalue,value in enumerate(self.evalValues):
+                predictionIndex = ijet*len(self.evalValues)+ivalue
+                predictionsPerIndexAndValue[jetIndex][value] = result.get("prediction",predictionIndex)
         for jetCollection in self.inputCollections:
             jets = jetCollection(event)
 
@@ -166,10 +166,11 @@ class TaggerEvaluation(Module):
 
                     for iclass, classLabel in enumerate(self.predictionLabels):
                         if hasattr(jet, "globalIdx"):
-                            taggerOutput[self.evalValues[ictau]][classLabel] = \
-                                    predictionsPerIndexAndCtau[jet.globalIdx][ctau][iclass]
+                            taggerOutput[self.evalValues[ivalue]][classLabel] = \
+                                    predictionsPerIndexAndValue[jet.globalIdx][value][iclass]
                         else:
-                            taggerOutput[self.evalValues[ictau]][classLabel] = -1.0
+                            taggerOutput[self.evalValues[ivalue]][classLabel] = -1.0
 
                 setattr(jet, self.taggerName, taggerOutput)
         return True
+        

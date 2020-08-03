@@ -32,6 +32,7 @@ testMode = args.testMode
 print "isData:",args.isData
 print "isSignal:",args.isSignal
 print "inputs:",len(args.inputFiles)
+print "invert lepton selection: ",args.invertLeptons
 
 for inputFile in args.inputFiles:
     if "-2016" in inputFile or "Run2016" in inputFile:
@@ -86,6 +87,7 @@ if args.isData:
 leptonSelection = [
     EventSkim(selection=lambda event: event.nTrigObj > 0),
     MuonSelection(
+        inputCollection=lambda event: Collection(event, "Muon"),
         outputName="tightMuon",
         storeKinematics=[],
         storeWeights=True,
@@ -96,30 +98,15 @@ leptonSelection = [
         selectLeadingOnly=True,
         globalOptions=globalOptions
     ),
-    ElectronSelection(
-        outputName="tightElectron",
-        storeKinematics=[],
-        electronMinPt=minElectronPt[globalOptions["year"]],
-        electronID="Inv" if args.invertLeptons else "Iso_WP90",
-        storeWeights=True,
-        triggerMatch=True,
-        selectLeadingOnly=True,
-        globalOptions=globalOptions
-    ),
-    EventSkim(selection=lambda event: (event.ntightMuon + event.ntightElectron) > 0),
+    EventSkim(selection=lambda event: event.ntightMuon > 0),
     SingleMuonTriggerSelection(
         inputCollection=lambda event: event.tightMuon,
         outputName="IsoMuTrigger",
         storeWeights=True,
         globalOptions=globalOptions
     ),
-    SingleElectronTriggerSelection(
-        inputCollection=lambda event: event.tightElectron,
-        outputName="IsoElectronTrigger",
-        storeWeights=False,
-        globalOptions=globalOptions
-    ),
-    EventSkim(selection=lambda event: (event.IsoMuTrigger_flag + event.IsoElectronTrigger_flag) > 0),
+    
+    EventSkim(selection=lambda event: event.IsoMuTrigger_flag > 0),
     MuonSelection(
         inputCollection=lambda event: event.tightMuon_unselected,
         outputName="looseMuons",
@@ -130,21 +117,22 @@ leptonSelection = [
         globalOptions=globalOptions
     ),
     ElectronSelection(
-        inputCollection=lambda event: event.tightElectron_unselected,
+        inputCollection=lambda event: Collection(event, "Electron"),
         outputName="looseElectrons",
         storeKinematics=[],
-
         electronMinPt=5.,
         electronID="Custom",
         globalOptions=globalOptions
     ),
-
-    EventSkim(selection=lambda event: (event.ntightMuon + event.ntightElectron + event.nlooseMuons + event.nlooseElectrons ) <= 2),
+    
     LeptonCollecting(
-        tightMuonCollection=lambda event:event.tightMuon,
-        tightElectronCollection=lambda event:event.tightElectron,
-        looseMuonCollection=lambda event:event.looseMuons,
-        looseElectronCollection=lambda event:event.looseElectrons
+        tightMuonCollection = lambda event: event.tightMuon,
+        tightElectronCollection = lambda event: [],
+        looseMuonCollection = lambda event: event.looseMuons,
+        looseElectronCollection = lambda event: [],
+        outputName = "Lepton",
+        globalOptions=globalOptions,
+        storeKinematics=["pt", "eta", "charge", "isMuon", "isElectron","relIso"]
     )
 ]
 
@@ -156,7 +144,7 @@ analyzerChain.extend(leptonSelection)
 analyzerChain.append(
     InvariantSystem(
         inputCollection= lambda event:
-            sorted(event.tightMuon+event.looseMuons+event.tightElectron+event.looseElectrons,key=lambda x: -x.pt)[:2],
+            sorted(event.tightMuon+event.looseMuons,key=lambda x: -x.pt)[:2],
         outputName="dilepton"
     )
 )
@@ -216,60 +204,32 @@ if isMC:
         analyzerChain.append(
             JetSelection(
                 inputCollection=jetCollection,
-                jetMinPt=30.,
-                jetMaxPt=100,
-                jetId=0,
                 leptonCollection=lambda event: event.leadingLepton,
-                outputName="selectedJets_"+systName,
+                jetMinPt=30.,
+                jetMinEta=-1,
+                jetMaxEta=2.4,
+                jetId=0,
+                storeKinematics=['pt', 'eta', 'nConstituents'],
+                outputName="selectedJets_nominal",
                 globalOptions=globalOptions
             )
         )
         
         analyzerChain.append(
             JetSelection(
-                inputCollection=lambda event, systName=systName: getattr(event, "selectedJets_%s_unselected" % (systName)),
-                jetMinPt=100.,
-                jetMaxEta=2.4,
-                jetId=0,
-                leptonCollection=lambda event: event.leadingLepton,
-                outputName="selectedHighPtJets_"+systName,
-                globalOptions=globalOptions
-            )
-        )
-
-        analyzerChain.append(
-            JetSelection(
-                inputCollection=lambda event, systName=systName: getattr(event, "selectedJets_%s_unselected" % (systName)),
+                inputCollection=jetCollection,
                 leptonCollection=lambda event: event.leadingLepton,
                 jetMinPt=30.,
                 jetMinEta=2.4,
-                jetMaxEta=5.,
+                jetMaxEta=5,
                 jetId=0,
-                outputName="vetoFwdJets_"+systName,
+                storeKinematics=['pt', 'eta', 'nConstituents'],
+                outputName="selectedFwdJets_nominal",
                 globalOptions=globalOptions
             )
         )
 
-        '''
-        analyzerChain.append(
-            JetTruthFlags(
-                inputCollection=lambda event, systName=systName: getattr(event, "selectedJets_"+systName),
-                outputName="selectedJets_"+systName,
-                globalOptions=globalOptions
-            )
-        )
-        '''
-    '''
-    analyzerChain.append(
-        EventSkim(selection=lambda event: \
-            getattr(event, "nselectedJets_nominal") > 0 
-            #or getattr(event, "nselectedJets_jesTotalUp") > 0 \
-            #or getattr(event, "nselectedJets_jesTotalDown") > 0 \
-            #or getattr(event, "nselectedJets_jerUp") > 0 \
-            #or getattr(event, "nselectedJets_jerDown") > 0
-        )
-    )
-    '''
+        
     
     '''
     analyzerChain.append(
@@ -344,7 +304,7 @@ if isMC:
     ]:
         analyzerChain.extend([
             WbosonReconstruction(
-                leptonCollectionName='leadingLepton',
+                leptonCollectionName='tightMuon',
                 metObject=metObject,
                 globalOptions=globalOptions,
                 outputName=systName
@@ -364,10 +324,13 @@ if isMC:
 else:
     analyzerChain.append(
         JetSelection(
+            inputCollection=lambda event: Collection(event, "Jet"),
             leptonCollection=lambda event: event.leadingLepton,
             jetMinPt=30.,
-            jetMaxPt=100,
+            jetMinEta=-1,
+            jetMaxEta=2.4,
             jetId=0,
+            storeKinematics=['pt', 'eta', 'nConstituents'],
             outputName="selectedJets_nominal",
             globalOptions=globalOptions
         )
@@ -375,25 +338,14 @@ else:
     
     analyzerChain.append(
         JetSelection(
-            inputCollection=lambda event: getattr(event, "selectedJets_nominal_unselected"),
-            jetMinPt=100.,
-            jetMaxEta=2.4,
-            jetId=0,
-            leptonCollection=lambda event: event.leadingLepton,
-            outputName="selectedHighPtJets_nominal",
-            globalOptions=globalOptions
-        )
-    )
-
-    analyzerChain.append(
-        JetSelection(
-            inputCollection=lambda event: getattr(event, "selectedJets_nominal_unselected"),
+            inputCollection=lambda event: Collection(event, "Jet"),
             leptonCollection=lambda event: event.leadingLepton,
             jetMinPt=30.,
             jetMinEta=2.4,
             jetMaxEta=5,
             jetId=0,
-            outputName="vetoFwdJets_nominal",
+            storeKinematics=['pt', 'eta', 'nConstituents'],
+            outputName="selectedFwdJets_nominal",
             globalOptions=globalOptions
         )
     )
@@ -451,7 +403,7 @@ else:
     
     analyzerChain.extend([
         WbosonReconstruction(
-            leptonCollectionName='leadingLepton',
+            leptonCollectionName='tightMuon',
             globalOptions=globalOptions,
             outputName="nominal"
         )

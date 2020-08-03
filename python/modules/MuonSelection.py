@@ -15,6 +15,7 @@ class MuonSelection(Module):
     MEDIUM = 2
     LOOSE = 3
     NONE = 4
+    INV = 5
 
     def __init__(
         self,
@@ -207,6 +208,10 @@ class MuonSelection(Module):
             else:
                 print "Error - unsupported combination"
                 sys.exit(1)
+                
+        elif muonIso==MuonSelection.INV:
+            self.muonIso = lambda muon: muon.pfRelIso04_all>0.4 and muon.pfRelIso04_all<0.8
+            self.storeWeights = False
 
     def triggerMatched(self, muon, trigger_object):
         if self.triggerMatch:

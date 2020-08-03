@@ -20,6 +20,7 @@ class JetTaggerResult(Module):
         outputName="selectedJets",
         predictionLabels=["B", "C", "UDS", "G", "PU", "isLLP_QMU_QQMU", "isLLP_Q_QQ"],
         evalValues=range(-1, 4),
+        formatValue=lambda num: str(num),
         globalOptions={"isData": False}
     ):
         self.globalOptions = globalOptions
@@ -28,6 +29,7 @@ class JetTaggerResult(Module):
         self.inputCollection = inputCollection
         self.predictionLabels = predictionLabels
         self.evalValues = evalValues
+        self.formatValue = formatValue
 
     def beginJob(self):
         pass
@@ -37,9 +39,9 @@ class JetTaggerResult(Module):
 
     def beginFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         self.out = wrappedOutputTree
-        for ctau in self.evalValues:
+        for evalValue in self.evalValues:
             for label in self.predictionLabels:
-                self.out.branch(self.outputName+"_"+self.taggerName+"_"+str(ctau).replace(".", "p").replace("-", "m")+"_"+label,"F",lenVar="n"+self.outputName)
+                self.out.branch(self.outputName+"_"+self.taggerName+"_"+self.formatValue(evalValue)+"_"+label,"F",lenVar="n"+self.outputName)
 
     def endFile(self, inputFile, outputFile, inputTree, wrappedOutputTree):
         pass
@@ -49,19 +51,22 @@ class JetTaggerResult(Module):
 
         jets = self.inputCollection(event)
 
-        taggerResults = {ctau: {className: [-1.]*len(jets) for className in self.predictionLabels} for ctau in self.evalValues}
+        taggerResults = {evalValue: {className: [-1.]*len(jets) for className in self.predictionLabels} for evalValue in self.evalValues}
         for ijet, jet in enumerate(jets):
             if not hasattr(jet, self.taggerName):
                 print "WARNING - jet ", jet, " has no ", self.taggerName, " result stored -> skip"
                 continue
             predictions = getattr(jet,self.taggerName)
-            for ctau in self.evalValues:
+            for evalValue in self.evalValues:
                 for label in self.predictionLabels:
-                    taggerResults[ctau][label][ijet] = predictions[ctau][label]
+                    taggerResults[evalValue][label][ijet] = \
+                        predictions[evalValue][label]
   
-        for ctau in self.evalValues:
+        for evalValue in self.evalValues:
             for label in self.predictionLabels:
-                self.out.fillBranch(self.outputName+"_"+self.taggerName+"_"+str(ctau).replace(".", "p").replace("-", "m")+"_"+label,
-                                    taggerResults[ctau][label])
+                self.out.fillBranch(
+                    self.outputName+"_"+self.taggerName+"_"+self.formatValue(evalValue)+"_"+label,
+                    taggerResults[evalValue][label]
+                )
 
         return True

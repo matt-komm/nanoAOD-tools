@@ -32,7 +32,8 @@ class ElectronSelection(Module):
                "noIso_WP90",
                "noIso_WPL",
                "None",
-               "Custom"
+               "Custom",
+               "Inv"
               ]
         self.inputCollection = inputCollection
         self.outputName = outputName
@@ -60,6 +61,10 @@ class ElectronSelection(Module):
                                 electron.GsfEleHadronicOverEMEnergyScaledCut>0 and \
                                 electron.GsfEleEInverseMinusPInverseCut>0 and \
                                 electron.GsfEleConversionVetoCut>0
+        elif electronID == "Inv":
+            self.electronID = lambda electron: electron.mvaFall17V2noIso_WPL<1 and electron.pfRelIso03_all<0.8
+            self.storeWeights = False
+            
         else:
             self.electronID = lambda electron: getattr(electron, "mvaFall17V2"+electronID)
 
@@ -170,7 +175,6 @@ class ElectronSelection(Module):
 
             if electron.pt>self.electronMinPt and math.fabs(electron.eta)<self.electronMaxEta \
                 and self.electronID(electron) and self.triggerMatched(electron, trigger_object):
-
                 if muons is not None and len(muons) > 0:
                     mindr = min(map(lambda muon: deltaR(muon, electron), muons))
                     if mindr < 0.05:

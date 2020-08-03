@@ -18,7 +18,7 @@ class LeptonCollecting(Module):
         looseElectronCollection = lambda event: Collection(event, "Electron"),
         outputName = "Lepton",
         globalOptions={"isData": False, "year": 2016},
-        storeKinematics=["pt", "eta", "phi", "charge", "isMuon", "isElectron"]
+        storeKinematics=["pt", "eta", "charge", "isMuon", "isElectron","relIso"]
     ):
         
         self.globalOptions = globalOptions
@@ -63,10 +63,12 @@ class LeptonCollecting(Module):
         for lepton in tightMuon+looseMuons:
             lepton.isMuon = 1
             lepton.isElectron = 0
+            lepton.relIso = lepton.pfRelIso04_all
 
         for lepton in tightElectron+looseElectrons:
             lepton.isMuon = 0
             lepton.isElectron = 1
+            lepton.relIso = lepton.pfRelIso03_all
 
         tightLepton = []
         looseLeptons = []

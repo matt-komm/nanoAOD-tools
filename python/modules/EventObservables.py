@@ -43,7 +43,7 @@ class EventObservables(Module):
         self.out.branch(self.outputName+"_mht", "F")
         self.out.branch(self.outputName+"_mht_phi", "F")
         self.out.branch(self.outputName+"_minPhi", "F")
-
+        
         if self.leptonCollection is not None:
             self.out.branch(self.outputName+"_mT_met_Mu", "F")
             self.out.branch(self.outputName+"_met_NoMu_pt", "F")
