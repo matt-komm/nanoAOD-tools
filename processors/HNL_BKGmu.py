@@ -130,7 +130,7 @@ leptonSelection = [
         tightElectronCollection = lambda event: [],
         looseMuonCollection = lambda event: event.looseMuons,
         looseElectronCollection = lambda event: [],
-        outputName = "Lepton",
+        outputName = "Leptons",
         globalOptions=globalOptions,
         storeKinematics=["pt", "eta", "charge", "isMuon", "isElectron","relIso"]
     )
@@ -204,12 +204,12 @@ if isMC:
         analyzerChain.append(
             JetSelection(
                 inputCollection=jetCollection,
-                leptonCollection=lambda event: event.leadingLepton,
+                leptonCollectionDRCleaning=lambda event: event.leadingLeptons,
+                leptonCollectionP4Subraction=lambda event: event.subleadingLeptons,
                 jetMinPt=30.,
-                jetMinEta=-1,
                 jetMaxEta=2.4,
-                jetId=0,
-                storeKinematics=['pt', 'eta', 'nConstituents'],
+                jetId=JetSelection.LOOSE,
+                storeKinematics=['pt', 'eta', 'nConstituents','ptLeptonSubtracted'],
                 outputName="selectedJets_nominal",
                 globalOptions=globalOptions
             )
@@ -218,12 +218,11 @@ if isMC:
         analyzerChain.append(
             JetSelection(
                 inputCollection=jetCollection,
-                leptonCollection=lambda event: event.leadingLepton,
                 jetMinPt=30.,
                 jetMinEta=2.4,
                 jetMaxEta=5,
-                jetId=0,
-                storeKinematics=['pt', 'eta', 'nConstituents'],
+                jetId=JetSelection.LOOSE,
+                storeKinematics=[],
                 outputName="selectedFwdJets_nominal",
                 globalOptions=globalOptions
             )
@@ -325,12 +324,12 @@ else:
     analyzerChain.append(
         JetSelection(
             inputCollection=lambda event: Collection(event, "Jet"),
-            leptonCollection=lambda event: event.leadingLepton,
+            leptonCollectionDRCleaning=lambda event: event.leadingLeptons,
+            leptonCollectionP4Subraction=lambda event: event.subleadingLeptons,
             jetMinPt=30.,
-            jetMinEta=-1,
             jetMaxEta=2.4,
-            jetId=0,
-            storeKinematics=['pt', 'eta', 'nConstituents'],
+            jetId=JetSelection.LOOSE,
+            storeKinematics=['pt', 'eta', 'nConstituents','ptLeptonSubtracted'],
             outputName="selectedJets_nominal",
             globalOptions=globalOptions
         )
@@ -339,24 +338,16 @@ else:
     analyzerChain.append(
         JetSelection(
             inputCollection=lambda event: Collection(event, "Jet"),
-            leptonCollection=lambda event: event.leadingLepton,
             jetMinPt=30.,
             jetMinEta=2.4,
             jetMaxEta=5,
-            jetId=0,
-            storeKinematics=['pt', 'eta', 'nConstituents'],
+            jetId=JetSelection.LOOSE,
+            storeKinematics=[],
             outputName="selectedFwdJets_nominal",
             globalOptions=globalOptions
         )
     )
 
-    '''
-    analyzerChain.append(
-        EventSkim(
-            selection=lambda event: event.nselectedJets_nominal > 0
-        )
-    )
-    '''
     
     '''
     analyzerChain.append(

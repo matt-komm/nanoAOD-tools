@@ -13,32 +13,36 @@ from utils import deltaR
 
 class JetSelection(Module):
 
+    LOOSE = 0
+    TIGHT = 1
+    TIGHTLEPVETO = 2
+    
     def __init__(
          self,
          inputCollection=lambda event: Collection(event, "Jet"),
-         leptonCollection=lambda event: [],
-         leptonFinderCollection=lambda event: [],
+         leptonCollectionDRCleaning=lambda event: [],
+         leptonCollectionP4Subraction=lambda event: [],
          outputName="selectedJets",
          jetMinPt=15.,
-         jetMaxPt=-1000.,
-         jetMinEta = 0.,
+         jetMinEta =-1.,
          jetMaxEta=2.4,
          dRCleaning=0.4,
+         dRP4Subtraction=0.4,
          flagDA=False,
          storeKinematics=['pt', 'eta', 'jetId'],
          globalOptions={"isData": False},
-         jetId=-1
-         ):
+         jetId=LOOSE
+     ):
         self.globalOptions = globalOptions
         self.inputCollection = inputCollection
-        self.leptonCollection = leptonCollection
-        self.leptonFinderCollection = leptonFinderCollection
+        self.leptonCollectionDRCleaning = leptonCollectionDRCleaning
+        self.leptonCollectionP4Subraction = leptonCollectionP4Subraction
         self.outputName = outputName
         self.jetMinPt = jetMinPt
-        self.jetMaxPt = jetMaxPt
         self.jetMinEta = jetMinEta
         self.jetMaxEta = jetMaxEta
         self.dRCleaning = dRCleaning
+        self.dRP4Subtraction = dRP4Subtraction
         self.flagDA = flagDA
         self.storeKinematics = storeKinematics
         self.jetId = jetId
@@ -54,6 +58,7 @@ class JetSelection(Module):
         if self.flagDA:
             self.out.branch(self.outputName+"_forDA", "F", lenVar="nJet")
 
+        self.out.branch("n"+self.outputName, "I")
         for variable in self.storeKinematics:
             self.out.branch(self.outputName+"_"+variable, "F", lenVar="n"+self.outputName)
 
@@ -69,40 +74,60 @@ class JetSelection(Module):
         unselectedJets = []
 
 
-        #print(self.outputName)
+        leptonsForDRCleaning = self.leptonCollectionDRCleaning(event)
+        leptonsForP4Subtraction = self.leptonCollectionP4Subraction(event)
 
         if self.flagDA:
             flagsDA = [0.]*event.nJet
 
         for jet in jets:
-            if jet.pt > self.jetMinPt and (self.jetMaxPt<0 or jet.pt < self.jetMaxPt) \
-                and math.fabs(jet.eta) < self.jetMaxEta and (self.jetMinEta<0 or math.fabs(jet.eta) > self.jetMinEta) \
-                and (jet.jetId > self.jetId):
-
-                #note: tagger only trained for these jets
-                if jet.nConstituents<4:
-                    continue
-
-                leptons = self.leptonCollection(event)
-                leptonsToFind = self.leptonFinderCollection(event)
-
-                if self.dRCleaning > 0. and leptons is not None and len(leptons) > 0:
-                    mindr = min(map(lambda lepton: deltaR(lepton, jet), leptons))
-                    if mindr < self.dRCleaning:
-                        unselectedJets.append(jet)
-                        continue
-
-                if self.dRCleaning > 0. and leptonsToFind is not None and len(leptonsToFind) > 0:
-                    mindr = min(map(lambda lepton: deltaR(lepton, jet), leptonsToFind))
-                    setattr(jet, "muon_DeltaR", mindr)
-                else:
-                    setattr(jet, "muon_DeltaR", -1.)
-                selectedJets.append(jet)
-                #print(jet.pt, jet.eta)
-
-            else:
+            
+            if math.fabs(jet.eta) > self.jetMaxEta:
                 unselectedJets.append(jet)
                 continue
+                
+            if (self.jetMinEta>0.) and (math.fabs(jet.eta) < self.jetMinEta):
+                unselectedJets.append(jet)
+                continue
+                
+            if (jet.jetId & (1 << self.jetId)) == 0:
+                unselectedJets.append(jet)
+                continue
+                
+            #note: tagger only trained for these jets
+            if jet.nConstituents<4:
+                unselectedJets.append(jet)
+                continue
+
+            
+            leptonP4 = ROOT.TLorentzVector(0,0,0,0)
+            if self.dRP4Subtraction > 0. and len(leptonsForP4Subtraction) > 0:
+                for lepton in leptonsForP4Subtraction:
+                    if deltaR(lepton,jet)<self.dRP4Subtraction:
+                        leptonP4 += lepton.p4()
+               
+            leptonPt = leptonP4.Pt()
+            jetPtLeptonSubtracted = (jet.p4()-leptonP4).Pt()
+            
+            setattr(jet,"ptLepton",leptonPt)
+            setattr(jet,"ptLeptonSubtracted",jetPtLeptonSubtracted)
+            
+            
+            if jetPtLeptonSubtracted<self.jetMinPt:
+                unselectedJets.append(jet)
+                continue
+
+                
+
+            if self.dRCleaning > 0. and len(leptonsForDRCleaning) > 0:
+                mindr = min(map(lambda lepton: deltaR(lepton, jet), leptonsForDRCleaning))
+                if mindr < self.dRCleaning:
+                    unselectedJets.append(jet)
+                    continue
+
+
+                selectedJets.append(jet)
+
 
             if self.flagDA:
                 flagsDA[jet._index] = 1.
@@ -110,8 +135,7 @@ class JetSelection(Module):
         if self.flagDA:
             self.out.fillBranch(self.outputName+"_forDA", flagsDA)
 
-        #print len(selectedJets)
-
+        self.out.fillBranch("n"+self.outputName, len(selectedJets))
         for variable in self.storeKinematics:
             self.out.fillBranch(self.outputName+"_"+variable,
                                 map(lambda jet: getattr(jet, variable), selectedJets))
