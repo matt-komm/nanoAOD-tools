@@ -55,7 +55,7 @@ analyzerChain = [
     EventSkim(selection=lambda event: event.nTrigObj > 0),
     MuonSelection(
         inputCollection=lambda event: Collection(event, "Muon"),
-        outputName="tightMuon",
+        outputName="tightMuons",
         storeKinematics=['pt','eta'],
         storeWeights=True,
         muonMinPt=minMuonPt[globalOptions["year"]],
@@ -65,9 +65,9 @@ analyzerChain = [
         globalOptions=globalOptions
     ),
     
-    EventSkim(selection=lambda event: event.ntightMuon > 0),
+    EventSkim(selection=lambda event: event.ntightMuons > 0),
     SingleMuonTriggerSelection(
-        inputCollection=lambda event: event.tightMuon,
+        inputCollection=lambda event: event.tightMuons,
         outputName="IsoMuTrigger",
         storeWeights=True,
         globalOptions=globalOptions
@@ -75,7 +75,7 @@ analyzerChain = [
     
     EventSkim(selection=lambda event: event.IsoMuTrigger_flag > 0),
     MuonVeto(
-        inputCollection=lambda event: event.tightMuon_unselected,
+        inputCollection=lambda event: event.tightMuons_unselected,
         outputName = "vetoMuons",
         muonMinPt = 10.,
         muonMaxEta = 2.4,
@@ -87,7 +87,7 @@ analyzerChain = [
     ),
     JetSelection(
         inputCollection=lambda event: Collection(event,"Jet"),
-        leptonCollectionDRCleaning=lambda event: event.tightMuon,
+        leptonCollectionDRCleaning=lambda event: event.tightMuons,
         jetMinPt=30.,
         jetMaxEta=4.7,
         jetId=JetSelection.LOOSE,
@@ -125,7 +125,7 @@ if not globalOptions["isData"]:
 
 p = PostProcessor(
     args.output[0],
-    [args.inputFiles],
+    args.inputFiles,
     cut="(nJet>0)&&((nElectron+nMuon)>0)",
     modules=analyzerChain,
     friend=True
